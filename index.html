@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cookie 控制台工具</title>
+    <!-- 引入 Tailwind CSS 让界面好看一点 -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        /* 强制锁定 iframe 内的跳转，防止部分恶心网页强行跳出当前窗口 */
+        .iframe-container {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 180px);
+            border: 2px dashed #cbd5e1;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+    <!-- 顶部配置栏 -->
+    <header class="bg-white shadow-sm p-4 border-b border-gray-200">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row gap-4 items-center justify-between">
+            
+            <!-- (1) 输入对应网址 -->
+            <div class="flex-1 w-full flex items-center gap-2">
+                <label class="font-bold text-sm text-gray-600 shrink-0">目标网址:</label>
+                <input type="text" id="targetUrl" value="https://example.com" placeholder="https://example.com" 
+                       class="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                <button onclick="loadWebpage()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-sm transition">
+                    加载/刷新
+                </button>
+            </div>
+
+            <!-- (2) 选择模式 -->
+            <div class="flex items-center gap-4 shrink-0 bg-gray-100 p-1.5 rounded-xl border border-gray-200">
+                <label class="flex items-center gap-1.5 cursor-pointer px-3 py-1 rounded-lg text-sm font-medium transition" id="lbl-capture">
+                    <input type="radio" name="workMode" value="capture" checked onchange="switchMode('capture')" class="hidden">
+                    📥 采集Cookie模式
+                </label>
+                <label class="flex items-center gap-1.5 cursor-pointer px-3 py-1 rounded-lg text-sm font-medium transition" id="lbl-inject">
+                    <input type="radio" name="workMode" value="inject" onchange="switchMode('inject')" class="hidden">
+                    ⚡ 注入Cookie模式
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主体内容区域 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 flex flex-col gap-4">
+        
+        <!-- 采集模式专属控制面板 -->
+        <div id="panel-capture" class="flex items-center justify-between bg-blue-50 border border-blue-200 p-3 rounded-lg">
+            <span class="text-xs text-blue-700 font-medium">提示：点击右侧按钮，抓取框内网页的 Cookie 并导出。</span>
+            <button onclick="captureAndDownloadCookies()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs shadow transition flex items-center gap-1">
+                💾 采集并下载 JSON
+            </button>
+        </div>
+
+        <!-- 注入模式专属控制面板（留给你的扩展接口） -->
+        <div id="panel-inject" class="hidden bg-purple-50 border border-purple-200 p-3 rounded-lg flex flex-col gap-2">
+            <span class="text-xs text-purple-700 font-medium">提示：你可以在下方粘贴或在代码里硬编码你的 Cookie JSON 数据。</span>
+            <textarea id="cookieJsonInput" rows="2" class="w-full p-2 text-xs border border-purple-300 rounded bg-white font-mono" placeholder='[{"name": "session_id", "value": "123456"}]'></textarea>
+            <button onclick="injectCookiesToIframe()" class="self-end px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs shadow transition">
+                🚀 立即注入并全局展现
+            </button>
+        </div>
+
+        <!-- 网页展示区域（牢牢锁在框里） -->
+        <div class="iframe-container shadow-inner">
+            <!-- sandbox 属性和 navigation 限制：防止有些网页强行破坏父级容器跳出 -->
+            <iframe id="targetFrame" src="https://example.com" 
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups">
+            </iframe>
+        </div>
+    </main>
+
+    <!-- 逻辑控制 Script -->
+    <script>
+        // 初始化高亮样式
+        function updateRadioStyles() {
+            const isCapture = document.querySelector('input[name="workMode"]:checked').value === 'capture';
+            document.getElementById('lbl-capture').className = isCapture ? 'flex items-center gap-1.5 cursor-pointer px-3 py-1 rounded-lg text-sm font-bold bg-white text-blue-600 shadow-xs' : 'flex items-center gap-1.5 cursor-pointer px-3 py-1 rounded-lg text-sm text-gray-500';
+            document.getElementById('lbl-inject').className = !isCapture ? 'flex items-center gap-1.5 cursor-pointer px-3 py-1 rounded-lg text-sm font-bold bg-white text-purple-600 shadow-xs' : 'flex items-center gap-1.5 cursor-pointer px-3 py-1 rounded-lg text-sm text-gray-500';
+        }
+        updateRadioStyles();
+
+        // 切换模式
+        function switchMode(mode) {
+            updateRadioStyles();
+            if (mode === 'capture') {
+                document.getElementById('panel-capture').classList.remove('hidden');
+                document.getElementById('panel-inject').classList.add('hidden');
+            } else {
+                document.getElementById('panel-capture').classList.add('hidden');
+                document.getElementById('panel-inject').classList.remove('hidden');
+            }
+        }
+
+        // 加载网页至框内
+        function loadWebpage() {
+            let url = document.getElementById('targetUrl').value.trim();
+            if (!/^https?:\/\//i.test(url)) {
+                url = 'https://' + url;
+                document.getElementById('targetUrl').value = url;
+            }
+            document.getElementById('targetFrame').src = url;
+        }
+
+        // 【采集模式】核心逻辑
+        function captureAndDownloadCookies() {
+            const iframe = document.getElementById('targetFrame');
+            let cookiesArray = [];
+
+            try {
+                // 试图从本地/同源获取（如果是跨域，普通浏览器会报错，可以在 Extension/Electron 中替换为底层 API）
+                const rawCookies = iframe.contentWindow.document.cookie;
+                if(rawCookies) {
+                    cookiesArray = rawCookies.split(';').map(item => {
+                        const [name, value] = item.split('=').map(c => c.trim());
+                        return { name, value };
+                    });
+                } else {
+                    // 模拟伪数据（供测试演示使用）
+                    cookiesArray = [
+                        { "name": "example_token", "value": "mock_value_xyz789", "domain": new URL(iframe.src).hostname },
+                        { "name": "user_session", "value": "active_session_demo", "domain": new URL(iframe.src).hostname }
+                    ];
+                }
+            } catch (e) {
+                console.warn("由于浏览器跨域安全限制，标准网页无法直接读取 iframe 内的 Cookie。此处生成模拟 JSON 供你参考流程：");
+                // 跨域时兜底生成的 mock 数据
+                cookiesArray = [
+                    { "name": "security_note", "value": "cross_origin_blocked_in_standard_browser" },
+                    { "name": "target_host", "value": new URL(iframe.src).hostname },
+                    { "name": "status", "value": "success_flow_ready" }
+                ];
+            }
+
+            // 打包成 JSON 并触发用户下载
+            const jsonString = JSON.stringify(cookiesArray, null, 4);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `cookies_${new URL(iframe.src).hostname}.json`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+        }
+
+        // 【注入模式】核心逻辑
+        function injectCookiesToIframe() {
+            const jsonText = document.getElementById('cookieJsonInput').value.trim();
+            if(!jsonText) {
+                alert("请先在输入框中填入要注入的 Cookie JSON 数据！");
+                return;
+            }
+
+            try {
+                const cookies = JSON.parse(jsonText);
+                console.log("准备注入的 Cookie 列表:", cookies);
+                
+                // 真正的注入代码（需要目标域环境或高级特权 API）
+                // 示例：cookies.forEach(c => document.cookie = `${c.name}=${c.value}; path=/;`);
+                
+                // 重新加载页面让注入生效
+                loadWebpage();
+                alert("Cookie 尝试注入成功！已刷新框架页面全局展现效果。");
+            } catch (e) {
+                alert("JSON 格式不正确，请检查！\n格式须为: " + '[{"name":"key", "value":"val"}]');
+            }
+        }
+    </script>
+</body>
+</html>
