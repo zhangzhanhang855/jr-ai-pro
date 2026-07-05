@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>全屏展示控制台</title>
     <style>
-        /* 消除边距，确保完美全屏 */
         html, body {
             margin: 0;
             padding: 0;
@@ -14,7 +13,6 @@
             overflow: hidden;
             background-color: #000;
         }
-        /* 牢牢锁在框架里，禁止跳出系统浏览器 */
         iframe {
             width: 100%;
             height: 100%;
@@ -30,20 +28,20 @@
 
     <script>
         // =================================================================
-        // 📥 【核心配置区域】请在下方填入你解析出来的对应数据
+        // 📥 【核心配置区域】
         // =================================================================
         const CONFIG = {
             // 1. 目标网址
-            targetUrl: "https://ai.hatiaoli.wiki/app", 
+            targetUrl: "https://ai.hatiaoli.wiki", 
 
-            // 2. 对应 Cookie 数据空位（根据 image_2.png 结果）
+            // 2. 🔑 整个网页唯一的空位：请把“1ienf4c53o...”那一长串值填到下面
             cookies: [
-                { name: "share-session", value: "1ienf4c5304ce0djqldn5k6qlicm0gmq" }
+                { name: "share-session", value: "1ienf4c53o4ce0djqldn5k6qlicm0gmq" }
             ],
 
-            // 3. 对应 LocalStorage 数据空位（根据 image_2.png 结果）
+            // 3. ✅ 已根据你的截图全部自动填好，你不用动它了！
             localStorage: [
-                { key: "__user_token__", value: "token" },
+                { key: "__user_token__", value: "token" }, // 居然真的就是字面量 "token"
                 { key: "crtUse", value: "hwc588xs" },
                 { key: "colorMode", value: "dark" },
                 { key: "systemNoticeLastShown", value: "Sun Jul 05 2026" }
@@ -55,29 +53,24 @@
         // 🚀 自动化注入与全屏加载逻辑
         window.addEventListener('DOMContentLoaded', () => {
             const iframe = document.getElementById('displayFrame');
-            
-            // 预先将配置的 URL 写入框架
             iframe.src = CONFIG.targetUrl;
 
-            // 尝试注入数据
             try {
                 // 1. 执行 Cookie 注入
                 CONFIG.cookies.forEach(c => {
-                    if(c.value && c.value !== "1ienf4c5304ce0djqldn5k6qlicm0gmq") {
+                    if(c.value && c.value !== "1ienf4c53o4ce0djqldn5k6qlicm0gmq") {
                         document.cookie = `${c.name}=${c.value}; path=/; domain=${window.location.hostname}; expires=Tue, 19 Jan 2038 03:14:07 GMT`;
                     }
                 });
 
                 // 2. 执行 LocalStorage 注入
                 CONFIG.localStorage.forEach(item => {
-                    if(item.value && !item.value.includes("token")) {
-                        window.localStorage.setItem(item.key, item.value);
-                    }
+                    window.localStorage.setItem(item.key, item.value);
                 });
                 
-                console.log("数据已就绪，正在全局全屏展现...");
+                console.log("数据注入完毕，正在全屏展现...");
             } catch (e) {
-                console.error("本地注入时发生跨域阻挡，建议在特权浏览器或套壳App环境中运行此HTML", e);
+                console.error("本地注入遭遇跨域限制", e);
             }
         });
     </script>
