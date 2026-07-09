@@ -1,78 +1,106 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>全屏展示控制台</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JR Web Proxy Client</title>
     <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #000;
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        input[type="text"] {
+            width: 70%;
+            padding: 10px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        #result-container {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            min-height: 500px;
+            padding: 10px;
+            background: #f9f9f9;
         }
         iframe {
             width: 100%;
-            height: 100%;
+            height: 600px;
             border: none;
-            display: block;
         }
     </style>
 </head>
 <body>
 
-    <!-- 锁定目标网页的框架 -->
-    <iframe id="displayFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+<div class="container">
+    <h2>JR Web Proxy Access</h2>
+    <p>Enter a URL and let Render server fetch it for you:</p>
+    
+    <div>
+        <input type="text" id="targetUrl" placeholder="https://example.com" value="https://example.com">
+        <button onclick="fetchPage()">Fetch Page</button>
+    </div>
 
-    <script>
-        // =================================================================
-        // 📥 【核心配置区域】
-        // =================================================================
-        const CONFIG = {
-            // 1. 目标网址
-            targetUrl: "https://ai.hatiaoli.wiki", 
+    <div id="result-container">
+        <p style="color: #666;">Fetched page will appear below...</p>
+    </div>
+</div>
 
-            // 2. 🔑 整个网页唯一的空位：请把“1ienf4c53o...”那一长串值填到下面
-            cookies: [
-                { name: "share-session", value: "1ienf4c53o4ce0djqldn5k6qlicm0gmq" }
-            ],
+<script>
+    // 替换成你在 Render 部署成功后的实际后端 URL
+    const BACKEND_URL = 'https://jrai-v64g.onrender.com/api/proxy'; 
 
-            // 3. ✅ 已根据你的截图全部自动填好，你不用动它了！
-            localStorage: [
-                { key: "__user_token__", value: "token" }, // 居然真的就是字面量 "token"
-                { key: "crtUse", value: "hwc588xs" },
-                { key: "colorMode", value: "dark" },
-                { key: "systemNoticeLastShown", value: "Sun Jul 05 2026" }
-            ]
-        };
-        // =================================================================
+    async function fetchPage() {
+        const urlInput = document.getElementById('targetUrl').value.trim();
+        const container = document.getElementById('result-container');
+        
+        if (!urlInput) {
+            alert('Please enter a valid URL');
+            return;
+        }
 
+        container.innerHTML = '<p>Loading from server...</p>';
 
-        // 🚀 自动化注入与全屏加载逻辑
-        window.addEventListener('DOMContentLoaded', () => {
-            const iframe = document.getElementById('displayFrame');
-            iframe.src = CONFIG.targetUrl;
+        try {
+            const response = await fetch(BACKEND_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ url: urlInput })
+            });
 
-            try {
-                // 1. 执行 Cookie 注入
-                CONFIG.cookies.forEach(c => {
-                    if(c.value && c.value !== "1ienf4c53o4ce0djqldn5k6qlicm0gmq") {
-                        document.cookie = `${c.name}=${c.value}; path=/; domain=${window.location.hostname}; expires=Tue, 19 Jan 2038 03:14:07 GMT`;
-                    }
-                });
-
-                // 2. 执行 LocalStorage 注入
-                CONFIG.localStorage.forEach(item => {
-                    window.localStorage.setItem(item.key, item.value);
-                });
-                
-                console.log("数据注入完毕，正在全屏展现...");
-            } catch (e) {
-                console.error("本地注入遭遇跨域限制", e);
+            if (!response.ok) {
+                throw new Error(`Server returned status: ${response.status}`);
             }
-        });
-    </script>
+
+            // 拿到后端传回的网页 HTML 文本
+            const htmlContent = await response.text();
+
+            // 使用 iframe 来安全、隔离地渲染返回的 HTML 页面
+            const iframe = document.createElement('iframe');
+            container.innerHTML = ''; // 清空提示
+            container.appendChild(iframe);
+            
+            // 将 HTML 写入 iframe
+            const doc = iframe.contentDocument || iframe.contentWindow.document;
+            doc.open();
+            doc.write(htmlContent);
+            doc.close();
+
+        } catch (error) {
+            console.error('Fetch error:', error);
+            container.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+        }
+    }
+</script>
+
 </body>
 </html>
