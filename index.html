@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JR Web Proxy Client - Fullscreen</title>
+    <title>JR Cloud Browser</title>
     <style>
-        /* 清除默认边距，让页面占满 100% 屏幕 */
+        /* 核心基础样式 */
         html, body {
             margin: 0;
             padding: 0;
@@ -13,149 +13,519 @@
             height: 100%;
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1e1e1e;
         }
 
-        /* 顶部控制栏：固定在最上方 */
-        .control-bar {
-            height: 60px;
-            background-color: #1a1a1a;
-            color: #ffffff;
+        /* 主容器：垂直布局 */
+        .browser-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 1. 顶部栏（标签页管理） */
+        .tabs-bar {
+            height: 40px;
+            background-color: #181818;
+            display: flex;
+            align-items: flex-end;
+            padding: 0 10px;
+            overflow-x: auto;
+            border-bottom: 1px solid #282828;
+        }
+        .tabs-bar::-webkit-scrollbar { height: 4px; }
+        .tabs-bar::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+
+        .tab {
+            height: 32px;
+            background-color: #2c2c2c;
+            color: #aaa;
+            padding: 0 15px;
+            border-radius: 6px 6px 0 0;
+            margin-right: 4px;
             display: flex;
             align-items: center;
-            padding: 0 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-            box-sizing: border-box;
+            font-size: 13px;
+            cursor: pointer;
+            max-width: 150px;
+            min-width: 80px;
+            transition: all 0.2s;
             position: relative;
-            z-index: 10;
+        }
+        .tab.active {
+            background-color: #333;
+            color: #fff;
+            font-weight: bold;
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
+        }
+        .tab .tab-title {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-right: 8px;
+        }
+        .tab .close-tab {
+            font-size: 14px;
+            color: #888;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .tab .close-tab:hover { background: #555; color: #fff; }
+        
+        .add-tab-btn {
+            height: 28px;
+            width: 28px;
+            background: #2c2c2c;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            margin-bottom: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .add-tab-btn:hover { background: #444; }
+
+        /* 2. 中部栏（地址栏与可伸缩外壳） */
+        .nav-bar {
+            height: 50px;
+            background-color: #333;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            border-bottom: 1px solid #222;
+            gap: 10px;
         }
 
-        .logo {
-            font-weight: bold;
-            font-size: 18px;
-            margin-right: 20px;
-            color: #00adb5;
+        /* 可伸缩的地址栏外壳 */
+        .address-wrapper {
+            display: flex;
+            position: relative;
+            min-width: 200px;
+            max-width: 85%;
+            width: 500px; /* 默认宽度，会被Cookie或拖拽覆盖 */
         }
 
         .input-group {
-            flex: 1;
+            width: 100%;
             display: flex;
-            max-width: 800px;
+            background: #222;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #444;
         }
+        .input-group:focus-within { border-color: #00adb5; }
 
         input[type="text"] {
             flex: 1;
-            padding: 10px 15px;
+            background: transparent;
             border: none;
-            border-radius: 4px 0 0 4px;
-            font-size: 14px;
+            padding: 8px 12px;
+            font-size: 13px;
+            color: #fff;
             outline: none;
         }
 
-        button {
+        /* 右侧可拖拽区域的隐形边缘线 */
+        .resize-handle {
+            position: absolute;
+            right: -5px;
+            top: 0;
+            width: 10px;
+            height: 100%;
+            cursor: ew-resize;
+            z-index: 5;
+        }
+
+        .btn-nav {
             background-color: #00adb5;
             color: white;
             border: none;
-            padding: 0 25px;
-            font-size: 14px;
+            padding: 0 15px;
+            font-size: 13px;
             font-weight: bold;
-            border-radius: 0 4px 4px 0;
             cursor: pointer;
             transition: background 0.2s;
+            white-space: nowrap;
         }
-
-        button:hover {
-            background-color: #007a80;
+        .btn-nav:hover { background-color: #007a80; }
+        
+        .btn-icon {
+            background: #444;
+            color: #fff;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
         }
+        .btn-icon:hover { background: #555; }
 
-        /* 下方内容区：动态计算高度，撑满剩余屏幕 */
-        #result-container {
-            width: 100%;
-            height: calc(100vh - 60px); 
+        /* 收藏夹展示栏 */
+        .bookmark-bar {
+            height: 30px;
+            background-color: #222;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            gap: 10px;
+            overflow-x: auto;
+            border-bottom: 1px solid #111;
+        }
+        .bookmark-item {
+            color: #ccc;
+            font-size: 12px;
+            cursor: pointer;
+            background: #333;
+            padding: 2px 8px;
+            border-radius: 3px;
+            white-space: nowrap;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: inline-block;
+        }
+        .bookmark-item:hover { background: #444; color: #fff; }
+
+        /* 3. 下方网页展示区（多 iframe 并存） */
+        #views-container {
+            flex: 1;
             background-color: #f4f4f9;
             position: relative;
         }
-
-        /* 让 iframe 彻底铺满内容区 */
-        iframe {
+        .web-view {
             width: 100%;
             height: 100%;
             border: none;
-            display: block;
+            display: none; /* 默认隐藏，激活的才显示 */
         }
+        .web-view.active { display: block; }
 
-        /* 提示信息样式 */
         .status-msg {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 16px;
+            font-size: 15px;
             color: #666;
             text-align: center;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
 
-    <div class="control-bar">
-        <div class="logo">JR Proxy</div>
-        <div class="input-group">
-            <input type="text" id="targetUrl" placeholder="输入你想访问的国内网址 (例如: https://m.baidu.com)" value="https://m.baidu.com">
-            <button onclick="fetchPage()">Fetch</button>
+<div class="browser-container">
+    <!-- 1. 标签页控制栏 -->
+    <div class="tabs-bar" id="tabsBar">
+        <!-- 动态渲染标签页位置 -->
+        <button class="add-tab-btn" onclick="createNewTab()">+</button>
+    </div>
+
+    <!-- 2. 功能导航与伸缩地址栏 -->
+    <div class="nav-bar">
+        <button class="btn-icon" onclick="toggleBookmark()" title="收藏当前页">⭐ 收藏</button>
+        
+        <!-- 可拖动伸缩的外壳 -->
+        <div class="address-wrapper" id="addressWrapper">
+            <div class="input-group">
+                <input type="text" id="targetUrl" placeholder="输入国内网址 (如: https://m.baidu.com)">
+                <button class="btn-nav" onclick="loadCurrentTab()">Go</button>
+            </div>
+            <!-- 拖拽手柄 -->
+            <div class="resize-handle" id="resizeHandle"></div>
         </div>
     </div>
 
-    <div id="result-container">
-        <div class="status-msg" id="statusMsg">输入网址并点击 Fetch 开始海外加速访问</div>
+    <!-- 收藏夹快捷展示 -->
+    <div class="bookmark-bar" id="bookmarkBar">
+        <span style="color:#666; font-size:12px;">收藏夹:</span>
+        <!-- 动态渲染收藏夹位置 -->
     </div>
 
+    <!-- 3. 多标签网页视窗区 -->
+    <div id="views-container">
+        <!-- 动态渲染不同标签页的 iframe -->
+    </div>
+</div>
+
 <script>
-    // 💡 记得把这里换成你刚刚在 Render 上成功运行的那个接口地址！
-    const BACKEND_URL = 'https://jrai-v64g.onrender.com/api/proxy'; 
+    // 💡 必须替换为你自己的 Render 后端服务地址！
+    const BACKEND_URL = 'https://你的Render项目名.onrender.com/api/proxy'; 
 
-    async function fetchPage() {
-        const urlInput = document.getElementById('targetUrl').value.trim();
-        const container = document.getElementById('result-container');
-        
-        if (!urlInput) {
-            alert('Please enter a valid URL');
-            return;
+    // 全局状态树
+    let tabs = [];
+    let activeTabId = null;
+    let bookmarks = [];
+
+    // ================= Cookie 工具函数 =================
+    function setCookie(name, value, days = 30) {
+        const d = new Date();
+        d.setTime(d.getTime() + (days*24*60*60*1000));
+        let expires = "expires="+ d.toUTCString();
+        document.cookie = name + "=" + encodeURIComponent(JSON.stringify(value)) + ";" + expires + ";path=/";
+    }
+
+    function getCookie(name) {
+        let nameEQ = name + "=";
+        let ca = document.cookie.split(';');
+        for(let i=0;i < ca.length;i++) {
+            let c = ca[i].trim();
+            if (c.indexOf(nameEQ) == 0) return JSON.parse(decodeURIComponent(c.substring(nameEQ.length,c.length)));
         }
+        return null;
+    }
 
-        // 显示加载状态
-        container.innerHTML = '<div class="status-msg" style="color: #00adb5;">正在通过 Render 海外服务器全力加载中...</div>';
+    // ================= 地址栏拖拽拉伸逻辑 =================
+    const wrapper = document.getElementById('addressWrapper');
+    const handle = document.getElementById('resizeHandle');
+    let isResizing = false;
+
+    // 从Cookie中恢复地址栏宽度
+    const savedWidth = getCookie('browser_address_width');
+    if (savedWidth) wrapper.style.width = savedWidth + 'px';
+
+    handle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        document.body.style.cursor = 'ew-resize';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isResizing) return;
+        let newWidth = e.clientX - wrapper.getBoundingClientRect().left;
+        if (newWidth < 200) newWidth = 200; // 最小宽度限制
+        if (newWidth > window.innerWidth * 0.85) newWidth = window.innerWidth * 0.85; // 最大宽度限制
+        wrapper.style.width = newWidth + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+        if (isResizing) {
+            isResizing = false;
+            document.body.style.cursor = 'default';
+            setCookie('browser_address_width', parseInt(wrapper.style.width));
+        }
+    });
+
+    // ================= 核心业务：标签页与收藏夹 =================
+    
+    // 初始化启动
+    function initBrowser() {
+        // 恢复收藏夹
+        bookmarks = getCookie('browser_bookmarks') || [];
+        renderBookmarks();
+
+        // 恢复标签页
+        const savedTabs = getCookie('browser_tabs');
+        if (savedTabs && savedTabs.length > 0) {
+            tabs = savedTabs;
+            activeTabId = getCookie('browser_active_tab') || tabs[0].id;
+            // 为恢复的标签页重建DOM
+            tabs.forEach(t => createTabElements(t));
+            switchTab(activeTabId);
+        } else {
+            // 没有历史记录则默认建一个空标签页
+            createNewTab();
+        }
+    }
+
+    // 创建新标签数据
+    function createNewTab(url = '') {
+        const id = 'tab_' + Date.now() + Math.floor(Math.random()*100);
+        const newTab = { id, url, title: url ? url.replace('https://','') : '新标签页' };
+        tabs.push(newTab);
+        
+        createTabElements(newTab);
+        switchTab(id);
+        saveTabsState();
+    }
+
+    // 为单个标签页生成 DOM 结构 (Tab标签和对应的Iframe)
+    function createTabElements(tab) {
+        const tabsBar = document.getElementById('tabsBar');
+        const addBtn = tabsBar.querySelector('.add-tab-btn');
+
+        // 创建顶部 Tab 按钮
+        const tabEl = document.createElement('div');
+        tabEl.className = 'tab';
+        tabEl.id = 'btn_' + tab.id;
+        tabEl.onclick = () => switchTab(tab.id);
+        tabEl.innerHTML = `
+            <span class="tab-title" id="title_${tab.id}">${tab.title}</span>
+            <span class="close-tab" onclick="closeTab(event, '${tab.id}')">×</span>
+        `;
+        tabsBar.insertBefore(tabEl, addBtn);
+
+        // 创建下方内容对应的 iframe 容器
+        const container = document.getElementById('views-container');
+        if(tab.url) {
+            const iframe = document.createElement('iframe');
+            iframe.className = 'web-view';
+            iframe.id = 'view_' + tab.id;
+            container.appendChild(iframe);
+            triggerProxyLoad(tab.id, tab.url);
+        } else {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'web-view status-msg';
+            placeholder.id = 'view_' + tab.id;
+            placeholder.innerText = '请输入网址并点击 Go 开始越洋冲浪...';
+            container.appendChild(placeholder);
+        }
+    }
+
+    // 切换标签页显示
+    function switchTab(id) {
+        activeTabId = id;
+        
+        // 激活对应的Tab样式
+        document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+        const currentTabBtn = document.getElementById('btn_' + id);
+        if(currentTabBtn) currentTabBtn.classList.add('active');
+
+        // 激活对应的Iframe视图
+        document.querySelectorAll('.web-view').forEach(el => el.classList.remove('active'));
+        const currentView = document.getElementById('view_' + id);
+        if(currentView) currentView.classList.add('active');
+
+        // 同步输入框的网址
+        const currentTabData = tabs.find(t => t.id === id);
+        document.getElementById('targetUrl').value = currentTabData ? currentTabData.url : '';
+        
+        setCookie('browser_active_tab', activeTabId);
+    }
+
+    // 关闭标签页
+    function closeTab(event, id) {
+        event.stopPropagation(); // 阻止触发切换标签页
+        
+        // 删除DOM
+        document.getElementById('btn_' + id)?.remove();
+        document.getElementById('view_' + id)?.remove();
+
+        // 从数组清除
+        const index = tabs.findIndex(t => t.id === id);
+        tabs = tabs.filter(t => t.id !== id);
+
+        // 如果关闭的是当前激活页，自动切到别的页
+        if (activeTabId === id && tabs.length > 0) {
+            const nextActiveId = tabs[Math.max(0, index - 1)].id;
+            switchTab(nextActiveId);
+        } else if(tabs.length === 0) {
+            createNewTab();
+        }
+        saveTabsState();
+    }
+
+    // 在当前活跃标签页加载网址
+    function loadCurrentTab() {
+        const urlInput = document.getElementById('targetUrl').value.trim();
+        if(!urlInput) return;
+
+        const currentTab = tabs.find(t => t.id === activeTabId);
+        if(!currentTab) return;
+
+        currentTab.url = urlInput;
+        currentTab.title = urlInput.replace('https://','').replace('http://','');
+        document.getElementById('title_' + activeTabId).innerText = currentTab.title;
+
+        // 清空重构活跃视图为 iframe
+        const container = document.getElementById('views-container');
+        document.getElementById('view_' + activeTabId)?.remove();
+
+        const iframe = document.createElement('iframe');
+        iframe.className = 'web-view active';
+        iframe.id = 'view_' + activeTabId;
+        container.appendChild(iframe);
+
+        triggerProxyLoad(activeTabId, urlInput);
+        saveTabsState();
+    }
+
+    // 调用后端 Render 接口异步拉取网页并塞入指定的 iframe
+    async function triggerProxyLoad(tabId, url) {
+        const view = document.getElementById('view_' + tabId);
+        // 如果用户在加载过程中突然关闭了标签页，直接终止
+        if (!view) return; 
 
         try {
             const response = await fetch(BACKEND_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ url: urlInput })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url })
             });
 
-            if (!response.ok) {
-                throw new Error(`服务器返回错误状态码: ${response.status}`);
-            }
-
+            if (!response.ok) throw new Error(`Status: ${response.status}`);
             const htmlContent = await response.text();
 
-            // 创建全屏 iframe
-            const iframe = document.createElement('iframe');
-            container.innerHTML = ''; 
-            container.appendChild(iframe);
-            
-            // 写入抓取到的页面
-            const doc = iframe.contentDocument || iframe.contentWindow.document;
-            doc.open();
-            doc.write(htmlContent);
-            doc.close();
-
+            if (view.tagName === 'IFRAME') {
+                const doc = view.contentDocument || view.contentWindow.document;
+                doc.open();
+                doc.write(htmlContent);
+                doc.close();
+            }
         } catch (error) {
-            console.error('Fetch error:', error);
-            container.innerHTML = `<div class="status-msg" style="color: #ff4d4d;">加载失败: ${error.message}</div>`;
+            console.error('Proxy Error:', error);
+            if(document.getElementById('view_' + tabId)) {
+                document.getElementById('view_' + tabId).innerHTML = `<div style="padding:40px;color:red;text-align:center;">加载失败: ${error.message}</div>`;
+            }
         }
     }
+
+    // 保存标签页队列到 Cookie
+    function saveTabsState() {
+        // 只保存核心字段，规避 Cookie 长度限制超过 4KB 导致报错
+        const cleanTabs = tabs.map(t => ({ id: t.id, url: t.url, title: t.title }));
+        setCookie('browser_tabs', cleanTabs);
+    }
+
+    // ================= 收藏夹业务 =================
+    function toggleBookmark() {
+        const currentTab = tabs.find(t => t.id === activeTabId);
+        if(!currentTab || !currentTab.url) {
+            alert('空页面无法收藏哦');
+            return;
+        }
+
+        // 检查是否已收藏
+        if (bookmarks.some(b => b.url === currentTab.url)) {
+            // 取消收藏
+            bookmarks = bookmarks.filter(b => b.url !== currentTab.url);
+        } else {
+            // 新增收藏
+            bookmarks.push({ title: currentTab.title, url: currentTab.url });
+        }
+        
+        setCookie('browser_bookmarks', bookmarks);
+        renderBookmarks();
+    }
+
+    function renderBookmarks() {
+        const bar = document.getElementById('bookmarkBar');
+        // 先清空历史渲染，只留前缀提示
+        bar.innerHTML = '<span style="color:#666; font-size:12px;">收藏夹:</span>';
+        
+        bookmarks.forEach(b => {
+            const span = document.createElement('span');
+            span.className = 'bookmark-item';
+            span.innerText = `🔖 ${b.title}`;
+            span.title = b.url;
+            span.onclick = () => {
+                document.getElementById('targetUrl').value = b.url;
+                loadCurrentTab();
+            };
+            bar.appendChild(span);
+        });
+    }
+
+    // 网页入口初始化
+    window.onload = initBrowser;
 </script>
 
 </body>
