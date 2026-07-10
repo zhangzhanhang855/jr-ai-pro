@@ -230,7 +230,7 @@
 </div>
 
 <script>
-    // 💡 已绑定你的 Render 线上专属后端地址！
+    // 💡 已绑定你的 Render 线上专属后端地址
     const BACKEND_URL = 'https://jrai-v64g.onrender.com/api/proxy'; 
 
     let tabs = [];
@@ -278,10 +278,18 @@
         }
     });
 
-    // ================= 浏览器核心多标签逻辑 =================
+    // ================= 浏览器核心多标签与跨域雷达逻辑 =================
     function initBrowser() {
         bookmarks = getCookie('browser_bookmarks') || [];
         renderBookmarks();
+
+        // 🌟 核心升级：跨域消息接收雷达。收听被劫持的内部网页发出的弹窗或跳转信号
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.type === 'OPEN_NEW_TAB') {
+                console.log('[Browser Intercept] New tab requested by inner iframe:', event.data.url);
+                createNewTab(event.data.url); // 强制在沙箱内开新标签页
+            }
+        });
 
         const savedTabs = getCookie('browser_tabs');
         if (savedTabs && savedTabs.length > 0) {
@@ -309,7 +317,7 @@
 
     function createNewTab(url = '') {
         const id = 'tab_' + Date.now() + Math.floor(Math.random()*100);
-        const newTab = { id, url, title: url ? url.replace('https://','').replace('http://','') : '新标签页' };
+        const newTab = { id, url, title: url ? url.replace('https://','').replace('http://','').substring(0,12) : '新标签页' };
         tabs.push(newTab);
         createTabElements(newTab);
         switchTab(id);
@@ -332,11 +340,13 @@
 
         const container = document.getElementById('views-container');
         
-        // 生成强媒体授信、解除沙箱隔离的 Iframe
+        // 生成强媒体授信、且封锁恶意跳转能力的 Iframe
         const iframe = document.createElement('iframe');
         iframe.className = 'web-view';
         iframe.id = 'view_' + tab.id;
         iframe.setAttribute('allow', 'autoplay; encrypted-media; clipboard-write'); 
+        
+        // 🌟 核心控制：没有添加 'allow-top-navigation'，防止原网站的代码破坏你当前的浏览器面板
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups');
         container.appendChild(iframe);
 
@@ -387,7 +397,7 @@
         if(!currentTab) return;
 
         currentTab.url = urlInput;
-        currentTab.title = urlInput.replace('https://','').replace('http://','').substring(0,15);
+        currentTab.title = urlInput.replace('https://','').replace('http://','').substring(0,12);
         document.getElementById('title_' + activeTabId).innerText = currentTab.title;
 
         triggerProxyLoad(activeTabId, urlInput);
@@ -401,7 +411,7 @@
         try {
             const doc = view.contentDocument || view.contentWindow.document;
             doc.open();
-            doc.write(`<div style="margin-top:200px; text-align:center; color:#00adb5; font-family:sans-serif;">正在调集海外 Render 解析节点拉取音乐网页...</div>`);
+            doc.write(`<div style="margin-top:200px; text-align:center; color:#00adb5; font-family:sans-serif; background:#fff;">正在调集海外 Render 解析节点拉取音乐网页...</div>`);
             doc.close();
 
             const response = await fetch(BACKEND_URL, {
