@@ -22,7 +22,7 @@
             height: 100%;
         }
 
-        /* 顶部标签栏 */
+        /* 标签控制栏 */
         .tabs-bar {
             height: 40px;
             background-color: #181818;
@@ -92,7 +92,7 @@
         }
         .add-tab-btn:hover { background: #444; }
 
-        /* 导航与可伸缩地址栏 */
+        /* 伸缩导航控制条 */
         .nav-bar {
             height: 50px;
             background-color: #333;
@@ -164,7 +164,7 @@
         }
         .btn-icon:hover { background: #555; }
 
-        /* 收藏夹展示栏 */
+        /* 收藏夹 */
         .bookmark-bar {
             height: 30px;
             background-color: #222;
@@ -189,7 +189,7 @@
         }
         .bookmark-item:hover { background: #444; color: #fff; }
 
-        /* 网页展示区 */
+        /* 全屏视窗集 */
         #views-container {
             flex: 1;
             background-color: #ffffff;
@@ -202,17 +202,6 @@
             display: none; 
         }
         .web-view.active { display: block; }
-
-        .status-msg {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 15px;
-            color: #666;
-            text-align: center;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
@@ -226,7 +215,7 @@
         <button class="btn-icon" onclick="toggleBookmark()">⭐ 收藏</button>
         <div class="address-wrapper" id="addressWrapper">
             <div class="input-group">
-                <input type="text" id="targetUrl" placeholder="输入网址，后端自动补齐协议头">
+                <input type="text" id="targetUrl" placeholder="输入网址（例如: 你的音乐网页地址）">
                 <button class="btn-nav" onclick="loadCurrentTab()">Go</button>
             </div>
             <div class="resize-handle" id="resizeHandle"></div>
@@ -241,14 +230,14 @@
 </div>
 
 <script>
-    // 💡 已经配置好你的 Render 真实后端地址！
+    // 💡 已绑定你的 Render 线上专属后端地址！
     const BACKEND_URL = 'https://jrai-v64g.onrender.com/api/proxy'; 
 
     let tabs = [];
     let activeTabId = null;
     let bookmarks = [];
 
-    // Cookie 持久化工具
+    // ================= Cookie 工具库 =================
     function setCookie(name, value, days = 30) {
         const d = new Date();
         d.setTime(d.getTime() + (days*24*60*60*1000));
@@ -265,7 +254,7 @@
         return null;
     }
 
-    // 可拉伸地址栏
+    // ================= 地址栏伸缩交互 =================
     const wrapper = document.getElementById('addressWrapper');
     const handle = document.getElementById('resizeHandle');
     let isResizing = false;
@@ -289,7 +278,7 @@
         }
     });
 
-    // 核心业务：标签页管理
+    // ================= 浏览器核心多标签逻辑 =================
     function initBrowser() {
         bookmarks = getCookie('browser_bookmarks') || [];
         renderBookmarks();
@@ -303,11 +292,24 @@
         } else {
             createNewTab();
         }
+
+        // 解除谷歌/微软浏览器针对多沙箱音频自动播放的静音机制
+        window.addEventListener('click', () => {
+            tabs.forEach(t => {
+                const view = document.getElementById('view_' + t.id);
+                if (view && view.tagName === 'IFRAME') {
+                    try {
+                        const doc = view.contentDocument || view.contentWindow.document;
+                        doc.querySelectorAll('audio, video').forEach(a => a.muted = false);
+                    } catch(e){}
+                }
+            });
+        }, { once: true });
     }
 
     function createNewTab(url = '') {
         const id = 'tab_' + Date.now() + Math.floor(Math.random()*100);
-        const newTab = { id, url, title: url ? url.replace('https://','') : '新标签页' };
+        const newTab = { id, url, title: url ? url.replace('https://','').replace('http://','') : '新标签页' };
         tabs.push(newTab);
         createTabElements(newTab);
         switchTab(id);
@@ -330,25 +332,20 @@
 
         const container = document.getElementById('views-container');
         
-        // 👉 核心修复：创建最高媒体权限的 iframe 沙箱壳
+        // 生成强媒体授信、解除沙箱隔离的 Iframe
         const iframe = document.createElement('iframe');
         iframe.className = 'web-view';
         iframe.id = 'view_' + tab.id;
-        
-        // 允许自动播放、允许解密媒体流
         iframe.setAttribute('allow', 'autoplay; encrypted-media; clipboard-write'); 
-        // 赋予执行脚本与同源访问能力，激活原网页音乐播放器的JS
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups');
-        
         container.appendChild(iframe);
 
         if(tab.url) {
             triggerProxyLoad(tab.id, tab.url);
         } else {
-            // 空页面提示
             const doc = iframe.contentDocument || iframe.contentWindow.document;
             doc.open();
-            doc.write(`<div style="margin-top:200px; text-align:center; color:#666; font-family:sans-serif;">输入网址并点击 Go 开始越洋冲浪</div>`);
+            doc.write(`<div style="margin-top:200px; text-align:center; color:#666; font-family:sans-serif; background:#fff;">请输入音乐网址并点击 Go</div>`);
             doc.close();
         }
     }
@@ -390,7 +387,7 @@
         if(!currentTab) return;
 
         currentTab.url = urlInput;
-        currentTab.title = urlInput.replace('https://','').replace('http://','');
+        currentTab.title = urlInput.replace('https://','').replace('http://','').substring(0,15);
         document.getElementById('title_' + activeTabId).innerText = currentTab.title;
 
         triggerProxyLoad(activeTabId, urlInput);
@@ -404,7 +401,7 @@
         try {
             const doc = view.contentDocument || view.contentWindow.document;
             doc.open();
-            doc.write(`<div style="margin-top:200px; text-align:center; color:#00adb5; font-family:sans-serif;">正在通过海外服务器跨海加载中...</div>`);
+            doc.write(`<div style="margin-top:200px; text-align:center; color:#00adb5; font-family:sans-serif;">正在调集海外 Render 解析节点拉取音乐网页...</div>`);
             doc.close();
 
             const response = await fetch(BACKEND_URL, {
@@ -416,7 +413,6 @@
             if (!response.ok) throw new Error(`Status: ${response.status}`);
             const htmlContent = await response.text();
 
-            // 重新将注入了 <base> 标签的 HTML 写入强授权的 iframe 中
             doc.open();
             doc.write(htmlContent);
             doc.close();
@@ -424,7 +420,7 @@
             console.error('Fetch Error:', error);
             const doc = view.contentDocument || view.contentWindow.document;
             doc.open();
-            doc.write(`<div style="margin-top:200px; color:red; text-align:center; font-family:sans-serif;">加载失败: ${error.message}</div>`);
+            doc.write(`<div style="margin-top:200px; color:red; text-align:center; font-family:sans-serif;">无法加载该网页: ${error.message}</div>`);
             doc.close();
         }
     }
@@ -434,7 +430,7 @@
         setCookie('browser_tabs', cleanTabs);
     }
 
-    // 收藏夹业务
+    // 收藏夹
     function toggleBookmark() {
         const currentTab = tabs.find(t => t.id === activeTabId);
         if(!currentTab || !currentTab.url) return alert('空页面无法收藏');
