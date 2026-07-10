@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JR Cloud Browser</title>
+    <title>JR Cloud Browser (Multi-Route)</title>
     <style>
         html, body {
             margin: 0;
@@ -92,7 +92,7 @@
         }
         .add-tab-btn:hover { background: #444; }
 
-        /* 伸缩地址栏 */
+        /* 伸缩地址栏与线路控制条 */
         .nav-bar {
             height: 50px;
             background-color: #333;
@@ -102,6 +102,43 @@
             border-bottom: 1px solid #222;
             gap: 10px;
         }
+
+        /* 🌟 新增：线路选择组合框 */
+        .route-selector-group {
+            display: flex;
+            align-items: center;
+            background-color: #222;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 4px 8px;
+            gap: 6px;
+        }
+        
+        .route-select {
+            background: transparent;
+            color: #fff;
+            border: none;
+            font-size: 13px;
+            outline: none;
+            cursor: pointer;
+            padding-right: 5px;
+        }
+        .route-select option {
+            background-color: #222;
+            color: #fff;
+        }
+
+        /* 状态指示灯 */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #00adb5;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 6px #00adb5;
+            transition: all 0.3s;
+        }
+        .status-dot.loading { background-color: #ffaa00; box-shadow: 0 0 6px #ffaa00; }
 
         .address-wrapper {
             display: flex;
@@ -211,6 +248,15 @@
 
     <div class="nav-bar">
         <button class="btn-icon" onclick="toggleBookmark()">⭐ 收藏</button>
+        
+        <div class="route-selector-group">
+            <span class="status-dot" id="routeStatusDot" title="线路正常"></span>
+            <select class="route-select" id="routeSelect" onchange="handleRouteChanges()">
+                <option value="route1">⚡ 线路一 (默认)</option>
+                <option value="route2">🚀 线路二 (备用)</option>
+            </select>
+        </div>
+
         <div class="address-wrapper" id="addressWrapper">
             <div class="input-group">
                 <input type="text" id="targetUrl" placeholder="请输入你想访问的海外大厂网址...">
@@ -228,14 +274,20 @@
 </div>
 
 <script>
-    // 绑定你的后端
-    const BACKEND_URL = 'https://jrai-v64g.onrender.com/api/proxy'; 
+    // 🌟 核心配置：请在这里填写你的两个不同的 Render 后端项目地址
+    const ROUTES = {
+        route1: 'https://jrai-v64g.onrender.com/api/proxy',
+        route2: 'https://jr-line2.onrender.com/api/proxy' // 💡 改为你的第二个备用后端地址
+    };
+
+    // 当前激活的线路请求前缀，默认使用线路一
+    let currentBackendUrl = ROUTES.route1; 
 
     let tabs = [];
     let activeTabId = null;
     let bookmarks = [];
 
-    // Cookie 存储管理
+    // ================= Cookie 工具库 =================
     function setCookie(name, value, days = 30) {
         const d = new Date();
         d.setTime(d.getTime() + (days*24*60*60*1000));
@@ -252,7 +304,24 @@
         return null;
     }
 
-    // 地址栏拉伸
+    // ================= 线路自主切换调度中枢 =================
+    function handleRouteChanges() {
+        const selectedRoute = document.getElementById('routeSelect').value;
+        currentBackendUrl = ROUTES[selectedRoute];
+        
+        // 存入 Cookie 持久化，下次打开不用手动重选
+        setCookie('browser_selected_route', selectedRoute);
+        
+        console.log(`[Route Switcher] Dynamically swapped to: ${selectedRoute} -> ${currentBackendUrl}`);
+        
+        // 智能小提示：如果当前有打开的页面，切换线路后自动刷新当前页以适配新网关
+        const currentTab = tabs.find(t => t.id === activeTabId);
+        if (currentTab && currentTab.url) {
+            loadCurrentTab();
+        }
+    }
+
+    // ================= 地址栏伸缩交互 =================
     const wrapper = document.getElementById('addressWrapper');
     const handle = document.getElementById('resizeHandle');
     let isResizing = false;
@@ -276,11 +345,19 @@
         }
     });
 
-    // 监听内嵌系统的跨域通信雷达
+    // ================= 核心多标签引擎 =================
     function initBrowser() {
         bookmarks = getCookie('browser_bookmarks') || [];
         renderBookmarks();
 
+        // 恢复用户上次选好的线路
+        const savedRoute = getCookie('browser_selected_route');
+        if (savedRoute && ROUTES[savedRoute]) {
+            document.getElementById('routeSelect').value = savedRoute;
+            currentBackendUrl = ROUTES[savedRoute];
+        }
+
+        // 跨域拦截雷达
         window.addEventListener('message', function(event) {
             if (event.data && event.data.type === 'OPEN_NEW_TAB') {
                 createNewTab(event.data.url);
@@ -296,6 +373,18 @@
         } else {
             createNewTab();
         }
+
+        window.addEventListener('click', () => {
+            tabs.forEach(t => {
+                const view = document.getElementById('view_' + t.id);
+                if (view && view.tagName === 'IFRAME') {
+                    try {
+                        const doc = view.contentDocument || view.contentWindow.document;
+                        doc.querySelectorAll('audio, video').forEach(a => a.muted = false);
+                    } catch(e){}
+                }
+            });
+        }, { once: true });
     }
 
     function createNewTab(url = '') {
@@ -327,7 +416,6 @@
         iframe.className = 'web-view';
         iframe.id = 'view_' + tab.id;
         
-        // 🌟 核心解锁：全面释放高级大厂网页运行所需的硬件、多媒体、脚本、弹窗以及 Cookie 共享信任链！
         iframe.setAttribute('allow', 'autoplay; encrypted-media; clipboard-write; microphone; camera'); 
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-modals');
         container.appendChild(iframe);
@@ -388,13 +476,20 @@
         const view = document.getElementById('view_' + tabId);
         if (!view) return;
 
+        const dot = document.getElementById('routeStatusDot');
+
         try {
+            // 指示灯变橙：加载中
+            dot.className = "status-dot loading";
+            dot.title = "正在通过所选线路跨海加速拉取中...";
+
             const doc = view.contentDocument || view.contentWindow.document;
             doc.open();
-            doc.write(`<div style="margin-top:200px; text-align:center; color:#00adb5; font-family:sans-serif;">正在调集海外二层透明网关解析加载...</div>`);
+            doc.write(`<div style="margin-top:200px; text-align:center; color:#00adb5; font-family:sans-serif;">正在调集选定海外节点网关解析加载...</div>`);
             doc.close();
 
-            const response = await fetch(BACKEND_URL, {
+            // 💡 自动根据用户选中的 currentBackendUrl 发起调度
+            const response = await fetch(currentBackendUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url: url })
@@ -406,11 +501,18 @@
             doc.open();
             doc.write(htmlContent);
             doc.close();
+
+            // 指示灯恢复青绿：成功
+            dot.className = "status-dot";
+            dot.title = "线路畅通";
         } catch (error) {
             console.error('Fetch Error:', error);
+            dot.className = "status-dot loading"; 
+            dot.title = "当前线路可能正在休眠或发生错误，请尝试切换线路";
+            
             const doc = view.contentDocument || view.contentWindow.document;
             doc.open();
-            doc.write(`<div style="margin-top:200px; color:red; text-align:center; font-family:sans-serif;">无法加载该网页: ${error.message}</div>`);
+            doc.write(`<div style="margin-top:200px; color:red; text-align:center; font-family:sans-serif;">无法通过当前线路加载该网页: ${error.message}<br><br><span style="color:#666; font-size:13px;">💡 提示：如果长久无响应，可尝试在控制条左侧切换为【线路二】重新访问。</span></div>`);
             doc.close();
         }
     }
