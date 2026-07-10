@@ -22,7 +22,7 @@
             height: 100%;
         }
 
-        /* 标签控制栏 */
+        /* 标签栏 */
         .tabs-bar {
             height: 40px;
             background-color: #181818;
@@ -92,7 +92,7 @@
         }
         .add-tab-btn:hover { background: #444; }
 
-        /* 伸缩导航控制条 */
+        /* 伸缩地址栏 */
         .nav-bar {
             height: 50px;
             background-color: #333;
@@ -164,7 +164,6 @@
         }
         .btn-icon:hover { background: #555; }
 
-        /* 收藏夹 */
         .bookmark-bar {
             height: 30px;
             background-color: #222;
@@ -189,7 +188,6 @@
         }
         .bookmark-item:hover { background: #444; color: #fff; }
 
-        /* 全屏视窗集 */
         #views-container {
             flex: 1;
             background-color: #ffffff;
@@ -215,7 +213,7 @@
         <button class="btn-icon" onclick="toggleBookmark()">⭐ 收藏</button>
         <div class="address-wrapper" id="addressWrapper">
             <div class="input-group">
-                <input type="text" id="targetUrl" placeholder="输入网址（例如: 你的音乐网页地址）">
+                <input type="text" id="targetUrl" placeholder="请输入你想访问的海外大厂网址...">
                 <button class="btn-nav" onclick="loadCurrentTab()">Go</button>
             </div>
             <div class="resize-handle" id="resizeHandle"></div>
@@ -230,14 +228,14 @@
 </div>
 
 <script>
-    // 💡 已绑定你的 Render 线上专属后端地址
+    // 绑定你的后端
     const BACKEND_URL = 'https://jrai-v64g.onrender.com/api/proxy'; 
 
     let tabs = [];
     let activeTabId = null;
     let bookmarks = [];
 
-    // ================= Cookie 工具库 =================
+    // Cookie 存储管理
     function setCookie(name, value, days = 30) {
         const d = new Date();
         d.setTime(d.getTime() + (days*24*60*60*1000));
@@ -254,7 +252,7 @@
         return null;
     }
 
-    // ================= 地址栏伸缩交互 =================
+    // 地址栏拉伸
     const wrapper = document.getElementById('addressWrapper');
     const handle = document.getElementById('resizeHandle');
     let isResizing = false;
@@ -278,16 +276,14 @@
         }
     });
 
-    // ================= 浏览器核心多标签与跨域雷达逻辑 =================
+    // 监听内嵌系统的跨域通信雷达
     function initBrowser() {
         bookmarks = getCookie('browser_bookmarks') || [];
         renderBookmarks();
 
-        // 🌟 核心升级：跨域消息接收雷达。收听被劫持的内部网页发出的弹窗或跳转信号
         window.addEventListener('message', function(event) {
             if (event.data && event.data.type === 'OPEN_NEW_TAB') {
-                console.log('[Browser Intercept] New tab requested by inner iframe:', event.data.url);
-                createNewTab(event.data.url); // 强制在沙箱内开新标签页
+                createNewTab(event.data.url);
             }
         });
 
@@ -300,19 +296,6 @@
         } else {
             createNewTab();
         }
-
-        // 解除谷歌/微软浏览器针对多沙箱音频自动播放的静音机制
-        window.addEventListener('click', () => {
-            tabs.forEach(t => {
-                const view = document.getElementById('view_' + t.id);
-                if (view && view.tagName === 'IFRAME') {
-                    try {
-                        const doc = view.contentDocument || view.contentWindow.document;
-                        doc.querySelectorAll('audio, video').forEach(a => a.muted = false);
-                    } catch(e){}
-                }
-            });
-        }, { once: true });
     }
 
     function createNewTab(url = '') {
@@ -340,14 +323,13 @@
 
         const container = document.getElementById('views-container');
         
-        // 生成强媒体授信、且封锁恶意跳转能力的 Iframe
         const iframe = document.createElement('iframe');
         iframe.className = 'web-view';
         iframe.id = 'view_' + tab.id;
-        iframe.setAttribute('allow', 'autoplay; encrypted-media; clipboard-write'); 
         
-        // 🌟 核心控制：没有添加 'allow-top-navigation'，防止原网站的代码破坏你当前的浏览器面板
-        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups');
+        // 🌟 核心解锁：全面释放高级大厂网页运行所需的硬件、多媒体、脚本、弹窗以及 Cookie 共享信任链！
+        iframe.setAttribute('allow', 'autoplay; encrypted-media; clipboard-write; microphone; camera'); 
+        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-modals');
         container.appendChild(iframe);
 
         if(tab.url) {
@@ -355,7 +337,7 @@
         } else {
             const doc = iframe.contentDocument || iframe.contentWindow.document;
             doc.open();
-            doc.write(`<div style="margin-top:200px; text-align:center; color:#666; font-family:sans-serif; background:#fff;">请输入音乐网址并点击 Go</div>`);
+            doc.write(`<div style="margin-top:200px; text-align:center; color:#666; font-family:sans-serif;">请输入网址并点击 Go</div>`);
             doc.close();
         }
     }
@@ -377,10 +359,8 @@
         event.stopPropagation();
         document.getElementById('btn_' + id)?.remove();
         document.getElementById('view_' + id)?.remove();
-
         const index = tabs.findIndex(t => t.id === id);
         tabs = tabs.filter(t => t.id !== id);
-
         if (activeTabId === id && tabs.length > 0) {
             switchTab(tabs[Math.max(0, index - 1)].id);
         } else if(tabs.length === 0) {
@@ -411,7 +391,7 @@
         try {
             const doc = view.contentDocument || view.contentWindow.document;
             doc.open();
-            doc.write(`<div style="margin-top:200px; text-align:center; color:#00adb5; font-family:sans-serif; background:#fff;">正在调集海外 Render 解析节点拉取音乐网页...</div>`);
+            doc.write(`<div style="margin-top:200px; text-align:center; color:#00adb5; font-family:sans-serif;">正在调集海外二层透明网关解析加载...</div>`);
             doc.close();
 
             const response = await fetch(BACKEND_URL, {
@@ -444,7 +424,6 @@
     function toggleBookmark() {
         const currentTab = tabs.find(t => t.id === activeTabId);
         if(!currentTab || !currentTab.url) return alert('空页面无法收藏');
-
         if (bookmarks.some(b => b.url === currentTab.url)) {
             bookmarks = bookmarks.filter(b => b.url !== currentTab.url);
         } else {
