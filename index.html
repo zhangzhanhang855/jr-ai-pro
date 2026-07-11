@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JR Cloud Browser (Multi-Route)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JR Cloud Browser</title>
     <style>
         html, body {
             margin: 0;
@@ -13,6 +13,7 @@
             overflow: hidden;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             background-color: #1e1e1e;
+            -webkit-tap-highlight-color: transparent; /* 消除手机端点击高亮蓝框 */
         }
 
         .browser-container {
@@ -22,47 +23,49 @@
             height: 100%;
         }
 
-        /* 标签栏 */
+        /* 1. 顶部标签切换栏 (手机端支持全自动手指横滑) */
         .tabs-bar {
-            height: 40px;
+            height: 44px;
             background-color: #181818;
             display: flex;
             align-items: flex-end;
-            padding: 0 10px;
+            padding: 0 8px;
             overflow-x: auto;
+            overflow-y: hidden;
             border-bottom: 1px solid #282828;
+            -webkit-overflow-scrolling: touch; /* 顺滑的手机滚动体验 */
+            flex-shrink: 0;
         }
-        .tabs-bar::-webkit-scrollbar { height: 4px; }
-        .tabs-bar::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+        /* 隐藏滚动条增强美观 */
+        .tabs-bar::-webkit-scrollbar { height: 0px; display: none; }
 
         .tab {
-            height: 32px;
+            height: 34px;
             background-color: #2c2c2c;
             color: #aaa;
-            padding: 0 15px;
+            padding: 0 12px;
             border-radius: 6px 6px 0 0;
             margin-right: 4px;
             display: flex;
             align-items: center;
             font-size: 13px;
             cursor: pointer;
-            max-width: 150px;
-            min-width: 80px;
+            max-width: 120px;
+            min-width: 75px;
+            flex-shrink: 0;
             transition: all 0.2s;
-            position: relative;
         }
         .tab.active {
             background-color: #333;
             color: #fff;
             font-weight: bold;
-            box-shadow: 0 -2px 5px rgba(0,0,0,0.2);
         }
         .tab .tab-title {
             flex: 1;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-right: 8px;
+            margin-right: 6px;
         }
         .tab .close-tab {
             font-size: 14px;
@@ -83,35 +86,39 @@
             color: #fff;
             border: none;
             border-radius: 4px;
-            margin-bottom: 4px;
+            margin-bottom: 5px;
             cursor: pointer;
             font-size: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
         }
-        .add-tab-btn:hover { background: #444; }
 
-        /* 伸缩地址栏与线路控制条 */
+        /* 2. 主控制中心导航栏 (大屏并排，小屏自动换行) */
         .nav-bar {
-            height: 50px;
+            min-height: 50px;
             background-color: #333;
             display: flex;
+            flex-wrap: wrap; /* 关键：允许空间不够时自动折行 */
             align-items: center;
-            padding: 0 15px;
+            padding: 6px 12px;
             border-bottom: 1px solid #222;
-            gap: 10px;
+            gap: 8px;
+            flex-shrink: 0;
         }
 
-        /* 🌟 新增：线路选择组合框 */
+        /* 线路切换面板 */
         .route-selector-group {
             display: flex;
             align-items: center;
             background-color: #222;
             border: 1px solid #444;
             border-radius: 6px;
-            padding: 4px 8px;
+            padding: 6px 10px;
             gap: 6px;
+            height: 34px;
+            box-sizing: border-box;
         }
         
         .route-select {
@@ -121,14 +128,9 @@
             font-size: 13px;
             outline: none;
             cursor: pointer;
-            padding-right: 5px;
         }
-        .route-select option {
-            background-color: #222;
-            color: #fff;
-        }
+        .route-select option { background-color: #222; }
 
-        /* 状态指示灯 */
         .status-dot {
             width: 8px;
             height: 8px;
@@ -136,16 +138,16 @@
             border-radius: 50%;
             display: inline-block;
             box-shadow: 0 0 6px #00adb5;
-            transition: all 0.3s;
         }
         .status-dot.loading { background-color: #ffaa00; box-shadow: 0 0 6px #ffaa00; }
 
+        /* 伸缩地址栏外壳 */
         .address-wrapper {
             display: flex;
             position: relative;
-            min-width: 200px;
-            max-width: 85%;
-            width: 500px; 
+            min-width: 150px;
+            width: 450px; /* 电脑端默认宽度 */
+            max-width: 100%;
         }
 
         .input-group {
@@ -155,6 +157,7 @@
             border-radius: 6px;
             overflow: hidden;
             border: 1px solid #444;
+            height: 34px;
         }
         .input-group:focus-within { border-color: #00adb5; }
 
@@ -162,17 +165,19 @@
             flex: 1;
             background: transparent;
             border: none;
-            padding: 8px 12px;
+            padding: 0 10px;
             font-size: 13px;
             color: #fff;
             outline: none;
+            min-width: 50px;
         }
 
+        /* 拉伸边缘热区（支持触屏） */
         .resize-handle {
             position: absolute;
-            right: -5px;
+            right: -4px;
             top: 0;
-            width: 10px;
+            width: 12px;
             height: 100%;
             cursor: ew-resize;
             z-index: 5;
@@ -182,53 +187,60 @@
             background-color: #00adb5;
             color: white;
             border: none;
-            padding: 0 15px;
+            padding: 0 16px;
             font-size: 13px;
             font-weight: bold;
             cursor: pointer;
             white-space: nowrap;
         }
-        .btn-nav:hover { background-color: #007a80; }
         
         .btn-icon {
             background: #444;
             color: #fff;
             border: none;
-            padding: 8px 12px;
+            height: 34px;
+            padding: 0 12px;
             border-radius: 4px;
             cursor: pointer;
             font-size: 13px;
+            display: flex;
+            align-items: center;
+            white-space: nowrap;
         }
-        .btn-icon:hover { background: #555; }
 
+        /* 3. 收藏夹滑条 */
         .bookmark-bar {
-            height: 30px;
+            height: 34px;
             background-color: #222;
             display: flex;
             align-items: center;
-            padding: 0 15px;
-            gap: 10px;
+            padding: 0 12px;
+            gap: 8px;
             overflow-x: auto;
             border-bottom: 1px solid #111;
+            flex-shrink: 0;
+            -webkit-overflow-scrolling: touch;
         }
+        .bookmark-bar::-webkit-scrollbar { display: none; }
+        
         .bookmark-item {
             color: #ccc;
             font-size: 12px;
             cursor: pointer;
             background: #333;
-            padding: 2px 8px;
-            border-radius: 3px;
+            padding: 3px 10px;
+            border-radius: 4px;
             white-space: nowrap;
-            max-width: 120px;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            display: inline-block;
+            flex-shrink: 0;
         }
-        .bookmark-item:hover { background: #444; color: #fff; }
 
+        /* 4. 全屏网页展现区 */
         #views-container {
             flex: 1;
             background-color: #ffffff;
             position: relative;
+            width: 100%;
         }
         .web-view {
             width: 100%;
@@ -237,52 +249,76 @@
             display: none; 
         }
         .web-view.active { display: block; }
+
+        /* ================= 📱 手机移动端核心专属响应式样式 ================= */
+        @media (max-width: 600px) {
+            .nav-bar {
+                padding: 8px;
+                gap: 6px;
+            }
+            /* 手机端地址栏和按钮自动吃满横向一整行 */
+            .address-wrapper {
+                width: 100% !important; /* 强制覆盖拖拽宽度 */
+                flex: 1;
+            }
+            .btn-icon {
+                padding: 0 10px;
+                font-size: 12px;
+            }
+            /* 隐藏手机端拉伸边缘，防止误触 */
+            .resize-handle {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
 
 <div class="browser-container">
+    <!-- 1. 标签切换滑条 -->
     <div class="tabs-bar" id="tabsBar">
         <button class="add-tab-btn" onclick="createNewTab()">+</button>
     </div>
 
+    <!-- 2. 响应式控制中枢 -->
     <div class="nav-bar">
         <button class="btn-icon" onclick="toggleBookmark()">⭐ 收藏</button>
         
+        <!-- 线路调度 -->
         <div class="route-selector-group">
-            <span class="status-dot" id="routeStatusDot" title="线路正常"></span>
+            <span class="status-dot" id="routeStatusDot"></span>
             <select class="route-select" id="routeSelect" onchange="handleRouteChanges()">
-                <option value="route1">⚡ 线路一 (默认)</option>
+                <option value="route1">⚡ 线路一 (主线)</option>
                 <option value="route2">🚀 线路二 (备用)</option>
             </select>
         </div>
 
+        <!-- 触屏自适应地址栏 -->
         <div class="address-wrapper" id="addressWrapper">
             <div class="input-group">
-                <input type="text" id="targetUrl" placeholder="请输入你想访问的海外大厂网址...">
+                <input type="text" id="targetUrl" placeholder="输入网址进行跨海全量解析...">
                 <button class="btn-nav" onclick="loadCurrentTab()">Go</button>
             </div>
             <div class="resize-handle" id="resizeHandle"></div>
         </div>
     </div>
 
+    <!-- 收藏夹展示 -->
     <div class="bookmark-bar" id="bookmarkBar">
-        <span style="color:#666; font-size:12px;">收藏夹:</span>
+        <span style="color:#666; font-size:12px; flex-shrink:0;">收藏夹:</span>
     </div>
 
+    <!-- 3. 多窗体视窗 -->
     <div id="views-container"></div>
 </div>
 
 <script>
-    // 🌟 核心配置：请在这里填写你的两个不同的 Render 后端项目地址
     const ROUTES = {
         route1: 'https://jrai-v64g.onrender.com/api/proxy',
-        route2: 'https://jr-line2.onrender.com/api/proxy' // 💡 改为你的第二个备用后端地址
+        route2: 'https://jr-line2.onrender.com/api/proxy'
     };
 
-    // 当前激活的线路请求前缀，默认使用线路一
     let currentBackendUrl = ROUTES.route1; 
-
     let tabs = [];
     let activeTabId = null;
     let bookmarks = [];
@@ -304,60 +340,71 @@
         return null;
     }
 
-    // ================= 线路自主切换调度中枢 =================
+    // 线路自主变换
     function handleRouteChanges() {
         const selectedRoute = document.getElementById('routeSelect').value;
         currentBackendUrl = ROUTES[selectedRoute];
-        
-        // 存入 Cookie 持久化，下次打开不用手动重选
         setCookie('browser_selected_route', selectedRoute);
-        
-        console.log(`[Route Switcher] Dynamically swapped to: ${selectedRoute} -> ${currentBackendUrl}`);
-        
-        // 智能小提示：如果当前有打开的页面，切换线路后自动刷新当前页以适配新网关
-        const currentTab = tabs.find(t => t.id === activeTabId);
-        if (currentTab && currentTab.url) {
+        if (tabs.find(t => t.id === activeTabId)?.url) {
             loadCurrentTab();
         }
     }
 
-    // ================= 地址栏伸缩交互 =================
+    // ================= 💻电脑端拖拽 ＋ 📱手机端触屏拉伸双路交互 =================
     const wrapper = document.getElementById('addressWrapper');
     const handle = document.getElementById('resizeHandle');
     let isResizing = false;
 
     const savedWidth = getCookie('browser_address_width');
-    if (savedWidth) wrapper.style.width = savedWidth + 'px';
+    if (savedWidth && window.innerWidth > 600) wrapper.style.width = savedWidth + 'px';
 
+    // 1. 电脑端鼠标事件
     handle.addEventListener('mousedown', () => { isResizing = true; document.body.style.cursor = 'ew-resize'; });
     document.addEventListener('mousemove', (e) => {
-        if (!isResizing) return;
+        if (!isResizing || window.innerWidth <= 600) return;
         let newWidth = e.clientX - wrapper.getBoundingClientRect().left;
-        if (newWidth < 200) newWidth = 200;
-        if (newWidth > window.innerWidth * 0.85) newWidth = window.innerWidth * 0.85;
-        wrapper.style.width = newWidth + 'px';
+        performResize(newWidth);
     });
-    document.addEventListener('mouseup', () => {
+
+    // 2. 手机端手指触摸事件
+    handle.addEventListener('touchstart', (e) => { isResizing = true; }, {passive: true});
+    document.addEventListener('touchmove', (e) => {
+        if (!isResizing || window.innerWidth <= 600) return;
+        let touchX = e.touches[0].clientX;
+        let newWidth = touchX - wrapper.getBoundingClientRect().left;
+        performResize(newWidth);
+    }, {passive: true});
+
+    document.addEventListener('mouseup', endResize);
+    document.addEventListener('touchend', endResize);
+
+    function performResize(width) {
+        if (width < 150) width = 150;
+        if (width > window.innerWidth * 0.8) width = window.innerWidth * 0.8;
+        wrapper.style.width = width + 'px';
+    }
+
+    function endResize() {
         if (isResizing) {
             isResizing = false;
             document.body.style.cursor = 'default';
-            setCookie('browser_address_width', parseInt(wrapper.style.width));
+            if(window.innerWidth > 600) {
+                setCookie('browser_address_width', parseInt(wrapper.style.width));
+            }
         }
-    });
+    }
 
-    // ================= 核心多标签引擎 =================
+    // ================= 浏览器核心控制引擎 =================
     function initBrowser() {
         bookmarks = getCookie('browser_bookmarks') || [];
         renderBookmarks();
 
-        // 恢复用户上次选好的线路
         const savedRoute = getCookie('browser_selected_route');
         if (savedRoute && ROUTES[savedRoute]) {
             document.getElementById('routeSelect').value = savedRoute;
             currentBackendUrl = ROUTES[savedRoute];
         }
 
-        // 跨域拦截雷达
         window.addEventListener('message', function(event) {
             if (event.data && event.data.type === 'OPEN_NEW_TAB') {
                 createNewTab(event.data.url);
@@ -374,7 +421,9 @@
             createNewTab();
         }
 
-        window.addEventListener('click', () => {
+        // 兼容手机端点击屏幕任意位置瞬间激活多沙箱音频
+        const activeAudioEvent = window.innerWidth <= 600 ? 'touchstart' : 'click';
+        window.addEventListener(activeAudioEvent, () => {
             tabs.forEach(t => {
                 const view = document.getElementById('view_' + t.id);
                 if (view && view.tagName === 'IFRAME') {
@@ -389,7 +438,7 @@
 
     function createNewTab(url = '') {
         const id = 'tab_' + Date.now() + Math.floor(Math.random()*100);
-        const newTab = { id, url, title: url ? url.replace('https://','').replace('http://','').substring(0,12) : '新标签页' };
+        const newTab = { id, url, title: url ? url.replace('https://','').replace('http://','').substring(0,10) : '新标签页' };
         tabs.push(newTab);
         createTabElements(newTab);
         switchTab(id);
@@ -415,7 +464,6 @@
         const iframe = document.createElement('iframe');
         iframe.className = 'web-view';
         iframe.id = 'view_' + tab.id;
-        
         iframe.setAttribute('allow', 'autoplay; encrypted-media; clipboard-write; microphone; camera'); 
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-popups allow-modals');
         container.appendChild(iframe);
@@ -425,7 +473,7 @@
         } else {
             const doc = iframe.contentDocument || iframe.contentWindow.document;
             doc.open();
-            doc.write(`<div style="margin-top:200px; text-align:center; color:#666; font-family:sans-serif;">请输入网址并点击 Go</div>`);
+            doc.write(`<div style="margin-top:150px; text-align:center; color:#666; font-size:14px; font-family:sans-serif;">请输入网址并点击 Go</div>`);
             doc.close();
         }
     }
@@ -441,6 +489,9 @@
         const currentTabData = tabs.find(t => t.id === id);
         document.getElementById('targetUrl').value = currentTabData ? currentTabData.url : '';
         setCookie('browser_active_tab', activeTabId);
+        
+        // 自动将当前选中的 Tab 标签滑动到正中间视窗（方便手机端滚动展示）
+        document.getElementById('btn_' + id)?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
 
     function closeTab(event, id) {
@@ -465,8 +516,11 @@
         if(!currentTab) return;
 
         currentTab.url = urlInput;
-        currentTab.title = urlInput.replace('https://','').replace('http://','').substring(0,12);
+        currentTab.title = urlInput.replace('https://','').replace('http://','').substring(0,10);
         document.getElementById('title_' + activeTabId).innerText = currentTab.title;
+
+        // 手机端在点击 Go 后自动收起软键盘，提升观感
+        document.getElementById('targetUrl').blur();
 
         triggerProxyLoad(activeTabId, urlInput);
         saveTabsState();
@@ -475,20 +529,16 @@
     async function triggerProxyLoad(tabId, url) {
         const view = document.getElementById('view_' + tabId);
         if (!view) return;
-
         const dot = document.getElementById('routeStatusDot');
 
         try {
-            // 指示灯变橙：加载中
             dot.className = "status-dot loading";
-            dot.title = "正在通过所选线路跨海加速拉取中...";
 
             const doc = view.contentDocument || view.contentWindow.document;
             doc.open();
-            doc.write(`<div style="margin-top:200px; text-align:center; color:#00adb5; font-family:sans-serif;">正在调集选定海外节点网关解析加载...</div>`);
+            doc.write(`<div style="margin-top:150px; text-align:center; color:#00adb5; font-size:14px; font-family:sans-serif;">正在通过全量透明网关跨海拉取中...</div>`);
             doc.close();
 
-            // 💡 自动根据用户选中的 currentBackendUrl 发起调度
             const response = await fetch(currentBackendUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -502,17 +552,13 @@
             doc.write(htmlContent);
             doc.close();
 
-            // 指示灯恢复青绿：成功
             dot.className = "status-dot";
-            dot.title = "线路畅通";
         } catch (error) {
             console.error('Fetch Error:', error);
             dot.className = "status-dot loading"; 
-            dot.title = "当前线路可能正在休眠或发生错误，请尝试切换线路";
-            
             const doc = view.contentDocument || view.contentWindow.document;
             doc.open();
-            doc.write(`<div style="margin-top:200px; color:red; text-align:center; font-family:sans-serif;">无法通过当前线路加载该网页: ${error.message}<br><br><span style="color:#666; font-size:13px;">💡 提示：如果长久无响应，可尝试在控制条左侧切换为【线路二】重新访问。</span></div>`);
+            doc.write(`<div style="margin-top:100px; padding:20px; color:red; text-align:center; font-size:14px; font-family:sans-serif;">加载失败: ${error.message}<br><br><span style="color:#666; font-size:12px;">💡 提示：若长久卡死，可尝试在控制条中切换主备路线重试。</span></div>`);
             doc.close();
         }
     }
@@ -537,7 +583,7 @@
 
     function renderBookmarks() {
         const bar = document.getElementById('bookmarkBar');
-        bar.innerHTML = '<span style="color:#666; font-size:12px;">收藏夹:</span>';
+        bar.innerHTML = '<span style="color:#666; font-size:12px; flex-shrink:0;">收藏夹:</span>';
         bookmarks.forEach(b => {
             const span = document.createElement('span');
             span.className = 'bookmark-item';
